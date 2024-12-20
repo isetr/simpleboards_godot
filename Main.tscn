@@ -1,0 +1,10 @@
+[gd_scene load_steps=3 format=3 uid="uid://cyd2pqlg31kov"]
+
+[ext_resource type="Script" path="res://main.gd" id="1_pwk4a"]
+[ext_resource type="Script" path="res://addons/simpleboards_plugin/SimpleBoardsApi.gd" id="2_4t6wl"]
+
+[node name="SimpleBoards" type="Node2D"]
+script = ExtResource("1_pwk4a")
+
+[node name="SimpleBoardsApi" type="Node" parent="."]
+script = ExtResource("2_4t6wl")
