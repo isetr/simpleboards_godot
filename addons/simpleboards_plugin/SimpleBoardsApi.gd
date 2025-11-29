@@ -1,35 +1,46 @@
 extends Node
 
-signal entries_got
-signal entry_sent
+signal entries_got(entries)
+signal entry_sent(entry)
+signal request_failed(response_code, body)
 
 @export var api_key: String = ""
 @export var base_url: String = "https://api.simpleboards.dev/api/"
-
-@onready var http_request: HTTPRequest = HTTPRequest.new()
-
-func _ready():
-	add_child(http_request)
-	http_request.connect("request_completed", _on_request_completed)
 
 func set_api_key(key: String):
 	"""Sets the API key for authentication."""
 	api_key = key
 
+
 func get_entries(leaderboard_id: String):
 	"""Fetches leaderboard entries for a given leaderboard ID."""
 	var url = base_url + "leaderboards/%s/entries" % leaderboard_id
-	var headers = ["x-api-key: " + api_key]
-	
-	var error = http_request.request(url, headers, HTTPClient.METHOD_GET)
-	if error != OK:
-		push_error("An error occurred in the HTTP request.")
-	await http_request.request_completed
+	var headers = [
+		"x-api-key: " + api_key
+	]
 
-func send_score_with_id(leaderboard_id: String, 
-		player_display_name: String, 
-		score: String,
-		metadata: String,
+	var response = await _perform_request(HTTPClient.METHOD_GET, url, headers)
+	if response == null:
+		return
+
+	var response_code = response.response_code
+	var body = response.body
+
+	if response_code == 200:
+		var parsed = JSON.parse_string(body.get_string_from_utf8())
+		if parsed is Array:
+			entries_got.emit(parsed)
+		else:
+			entry_sent.emit(parsed)
+	else:
+		request_failed.emit(response_code, JSON.parse_string(body.get_string_from_utf8()))
+
+
+func send_score_with_id(
+		leaderboard_id: String,
+		player_display_name: String,
+		score,
+		metadata,
 		player_id: String):
 	"""Submits a player's score to the leaderboard."""
 	var url = base_url + "entries"
@@ -44,16 +55,31 @@ func send_score_with_id(leaderboard_id: String,
 		"score": score,
 		"metadata": metadata
 	}
-	
-	var error = http_request.request(url, headers, HTTPClient.METHOD_POST, JSON.stringify(body))
-	await http_request.request_completed
-	if error != OK:
-		push_error("An error occurred in the HTTP request.")
-		
-func send_score_without_id(leaderboard_id: String, 
-		player_display_name: String, 
-		score: String,
-		metadata: String):
+
+	var response = await _perform_request(
+		HTTPClient.METHOD_POST,
+		url,
+		headers,
+		JSON.stringify(body)
+	)
+	if response == null:
+		return
+
+	var response_code = response.response_code
+	var response_body = response.body
+
+	if response_code == 200:
+		var parsed = JSON.parse_string(response_body.get_string_from_utf8())
+		entry_sent.emit(parsed)
+	else:
+		request_failed.emit(response_code, JSON.parse_string(response_body.get_string_from_utf8()))
+
+
+func send_score_without_id(
+		leaderboard_id: String,
+		player_display_name: String,
+		score,
+		metadata):
 	"""Submits a player's score to the leaderboard."""
 	var url = base_url + "entries"
 	var headers = [
@@ -66,18 +92,43 @@ func send_score_without_id(leaderboard_id: String,
 		"score": score,
 		"metadata": metadata
 	}
-	
-	var error = http_request.request(url, headers, HTTPClient.METHOD_POST, JSON.stringify(body))
-	await http_request.request_completed
-	if error != OK:
-		push_error("An error occurred in the HTTP request.")
 
-func _on_request_completed(result, response_code, headers, body):
+	var response = await _perform_request(
+		HTTPClient.METHOD_POST,
+		url,
+		headers,
+		JSON.stringify(body)
+	)
+	if response == null:
+		return
+
+	var response_code = response.response_code
+	var response_body = response.body
+
 	if response_code == 200:
-		var response = JSON.parse_string(body.get_string_from_utf8())
-		if response is Array:
-			entries_got.emit(response)
-		else:
-			entry_sent.emit(response)
+		var parsed = JSON.parse_string(response_body.get_string_from_utf8())
+		entry_sent.emit(parsed)
 	else:
-		print("HTTP Request failed: ", response_code, body)
+		request_failed.emit(response_code, JSON.parse_string(response_body.get_string_from_utf8()))
+
+
+func _perform_request(method: int, url: String, headers: Array, body := ""):
+	var http_request := HTTPRequest.new()
+	add_child(http_request)
+
+	var err = http_request.request(url, headers, method, body)
+	if err != OK:
+		http_request.queue_free()
+		push_error("HTTP request creation failed with error code %s" % err)
+		return null
+
+	var result = await http_request.request_completed
+	http_request.queue_free()
+
+	var response = {
+		"result": result[0],
+		"response_code": result[1],
+		"headers": result[2],
+		"body": result[3]
+	}
+	return response
