@@ -4,6 +4,7 @@ Manage [SimpleBoards](https://simpleboards.dev) leaderboards directly from the G
 
 ## Features
 
+- Free leaderboard service (see [Pricing](https://simpleboards.dev) for paid plans).
 - Fetch leaderboard entries.
 - Submit scores with or without a player ID.
 - Easy integration with the Godot Editor.
