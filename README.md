@@ -73,7 +73,7 @@ func _on_request_failed(response_code, body):
   - **Arguments**: `Array` of entries.
 - `entry_sent`: Emitted when a score is successfully submitted.
   - **Arguments**: `Dictionary` containing the server response.
-- `request_failed`: Emitted when a request is failed. Response code **499** is returned when request limit is reached!
+- `request_failed`: Emitted when a request is failed. Response code **429** is returned when request limit is reached!
   - **Arguments**: 
     - `Response_code` containing the server response code.
     - `Body` containing the server error message
